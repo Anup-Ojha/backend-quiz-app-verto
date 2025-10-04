@@ -4,18 +4,26 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # --- Database Setup ---
+# Configuration to use a SQLite file named 'anup.db'
 SQLALCHEMY_DATABASE_URL = "sqlite:///./anup.db"
 
+# Create the engine, necessary for SQLite in multi-threaded environments (like FastAPI)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 
+# Configure a SessionLocal class to create sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Base class for declarative models (all models inherit from this)
 Base = declarative_base()
 
 
 def get_db():
+    """
+    Dependency function for FastAPI to get a database session.
+    It ensures the session is always closed after the request is processed.
+    """
     db = SessionLocal()
     try:
         yield db
@@ -25,69 +33,65 @@ def get_db():
 
 def setup_database():
     """
-    Create tables (if missing) and seed corrected quiz data.
-    Models are imported inside the function to avoid circular imports.
+    Initializes the database: creates tables if they don't exist,
+    and seeds initial quiz data if the Question table is empty.
     """
-    from app.models import models  # ensure models are loaded / registered with Base
+    # Import models to ensure they are registered with Base.metadata
+    from app.models import models
+    # Create tables defined in the models file
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
     try:
         from app.models.models import Question
 
-        # If any questions already exist, skip seeding
+        # Check if dummy data already exists
         if db.query(Question).count() > 0:
             print("Dummy quiz data already exists. Skipping insertion.")
             return
 
-        # Corrected question_data
-        # Each tuple: (question_text, option_a, option_b, option_c, option_d, correct_key)
+        # Data structure for seeding questions (Topic: [Question, OptA, OptB, OptC, OptD, CorrectKey])
         question_data = {
             "General Knowledge": [
-                # correct keys distributed A,B,C,D,A
                 ("What is the largest planet in our solar system?", "Jupiter", "Mars", "Earth", "Venus", "A"),
                 ("What is the process by which plants make their own food?", "Respiration", "Photosynthesis", "Digestion", "Transpiration", "B"),
-                ("Which country gifted the Statue of Liberty to the US?", "Germany", "UK", "France", "Italy", "C"),  # France -> C
-                ("How many continents are there?", "Five", "Six", "Four", "Seven", "D"),  # Seven -> D
+                ("Which country gifted the Statue of Liberty to the US?", "Germany", "UK", "France", "Italy", "C"),
+                ("How many continents are there?", "Five", "Six", "Four", "Seven", "D"),
                 ("What is the chemical symbol for water?", "H2O", "O2", "CO2", "NaCl", "A"),
             ],
             "Geography": [
-                # correct keys distributed A,B,C,D,A
                 ("What is the capital of France?", "Paris", "Rome", "Berlin", "Madrid", "A"),
                 ("Which ocean is the largest?", "Atlantic Ocean", "Pacific Ocean", "Indian Ocean", "Arctic Ocean", "B"),
-                ("Mount Everest is located in which mountain range?", "Andes", "Alps", "Himalayas", "Rockies", "C"),  # Himalayas -> C
-                ("The river Nile flows into which sea?", "Red Sea", "Black Sea", "Aral Sea", "Mediterranean Sea", "D"),  # Mediterranean -> D
+                ("Mount Everest is located in which mountain range?", "Andes", "Alps", "Himalayas", "Rockies", "C"),
+                ("The river Nile flows into which sea?", "Red Sea", "Black Sea", "Aral Sea", "Mediterranean Sea", "D"),
                 ("The Great Barrier Reef is off the coast of which country?", "Australia", "Brazil", "Mexico", "South Africa", "A"),
             ],
             "DSA": [
-                # correct keys distributed B,A,C,D,B
-                ("Which structure is LIFO (Last-In, First-Out)?", "Queue", "Stack", "Array", "Linked List", "B"),  # Stack -> B
+                ("Which structure is LIFO (Last-In, First-Out)?", "Queue", "Stack", "Array", "Linked List", "B"),
                 ("What is the time complexity for accessing an element in an array by index?", "O(1)", "O(n)", "O(log n)", "O(n^2)", "A"),
-                ("A Queue is known for which order of access?", "LIFO", "FILO", "FIFO", "Random", "C"),  # FIFO -> C
-                ("Which data structure uses nodes and pointers?", "Array", "Stack", "Heap", "Linked List", "D"),  # Linked List -> D
-                ("An algorithm's efficiency is primarily measured by time and what else?", "Cost", "Space", "Power", "Readability", "B"),  # Space -> B
+                ("A Queue is known for which order of access?", "LIFO", "FILO", "FIFO", "Random", "C"),
+                ("Which data structure uses nodes and pointers?", "Array", "Stack", "Heap", "Linked List", "D"),
+                ("An algorithm's efficiency is primarily measured by time and what else?", "Cost", "Space", "Power", "Readability", "B"),
             ],
             "Python": [
-                # correct keys distributed C,A,D,B,A
-                ("Which keyword is used to define a function in Python?", "func", "define", "def", "function", "C"),  # def -> C
+                ("Which keyword is used to define a function in Python?", "func", "define", "def", "function", "C"),
                 ("What is the file extension for a Python source file?", ".py", ".p", ".pyt", ".python", "A"),
-                ("Which method adds an element to the end of a list?", "insert()", "add()", "extend()", "append()", "D"),  # append() -> D
-                ("In Python, which loop is used to iterate over a sequence?", "while", "for", "do-while", "loop", "B"),  # for -> B
+                ("Which method adds an element to the end of a list?", "insert()", "add()", "extend()", "append()", "D"),
+                ("In Python, which loop is used to iterate over a sequence?", "while", "for", "do-while", "loop", "B"),
                 ("What is the output of '2' + '3' in Python?", "'23'", "5", "Error", "'5'", "A"),
             ],
             "SQL": [
-                # correct keys distributed A,B,C,D,A
                 ("Which SQL statement is used to retrieve data from a database?", "SELECT", "GET", "RETRIEVE", "EXTRACT", "A"),
-                ("Which clause is used to filter records in SQL?", "HAVING", "WHERE", "FILTER", "ORDER BY", "B"),  # WHERE -> B
-                ("Which SQL statement is used to delete data?", "REMOVE", "DROP", "DELETE", "CLEAR", "C"),  # DELETE -> C
-                ("Which SQL keyword is used to sort the result-set?", "SORT BY", "GROUP BY", "ARRANGE", "ORDER BY", "D"),  # ORDER BY -> D
+                ("Which clause is used to filter records in SQL?", "HAVING", "WHERE", "FILTER", "ORDER BY", "B"),
+                ("Which SQL statement is used to delete data?", "REMOVE", "DROP", "DELETE", "CLEAR", "C"),
+                ("Which SQL keyword is used to sort the result-set?", "SORT BY", "GROUP BY", "ARRANGE", "ORDER BY", "D"),
                 ("Which SQL function is used to count the number of rows?", "COUNT()", "SUM()", "TOTAL()", "NUMBER()", "A"),
             ],
         }
 
-        # Insert data into DB (use provided correct_key — no random overwrite)
         for topic_name, questions in question_data.items():
             for q_text, opt_a, opt_b, opt_c, opt_d, correct_key in questions:
+                # Check for existing question to prevent duplicates on subsequent runs if DB was edited manually
                 existing_q = db.query(Question).filter(
                     Question.topic_name == topic_name,
                     Question.text == q_text
@@ -116,5 +120,5 @@ def setup_database():
         db.close()
 
 
-# Run setup when this module is imported (only seeds if DB empty)
+# Run setup when this module is imported (seeds data only if DB is empty)
 setup_database()
